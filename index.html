@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perplexity Explorer</title>
+<style>
+  :root { --ink:#111827; --navy:#0b1020; --yellow:#f8c900; --blue:#3b82f6; --purple:#7c3aed; --muted:#64748b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: linear-gradient(135deg,#eef2ff 0%,#fafafa 55%,#e8ecf4 100%); color: var(--ink); min-height: 100vh; }
+  body:before { content:""; position:fixed; inset:0 0 auto; height:5px; background:linear-gradient(90deg,var(--yellow),var(--blue),var(--purple),var(--yellow)); z-index:5; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 16px 56px; }
+  .hero { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
+  .bat { width:82px; height:48px; flex:none; background:var(--navy); clip-path:polygon(0 34%,18% 48%,29% 18%,44% 43%,50% 27%,56% 43%,71% 18%,82% 48%,100% 34%,91% 82%,69% 67%,50% 100%,31% 67%,9% 82%); filter:drop-shadow(0 5px 3px rgba(15,23,42,.18)); }
+  h1 { margin: 0 0 2px; font-size: 34px; letter-spacing:-1px; }
+  h1 span { color:#6d28d9; }
+  .sub { color: var(--muted); margin: 0; max-width:650px; }
+  .card { background:rgba(255,255,255,.96); border:1px solid #dde3ef; border-radius:18px; box-shadow:0 10px 30px rgba(15,23,42,.08); padding:22px; margin-bottom:18px; }
+  .card h2 { margin: 0 0 8px; font-size:21px; }
+  .what { background:linear-gradient(90deg,#eef2ff,#f6f3ff); border-left:4px solid var(--purple); padding:10px 12px; border-radius:8px; font-size:14px; margin:8px 0 14px; }
+  input[type=text], input[type=number] { box-sizing:border-box; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+  input[type=text] { width:100%; font-size:17px; padding:12px; }
+  input[type=number] { width:90px; font-size:15px; padding:7px; }
+  input:focus { outline:2px solid #a78bfa; border-color:#8b5cf6; }
+  button { font-size:15px; padding:10px 15px; border-radius:10px; border:1px solid #cbd5e1; background:#fff; color:var(--ink); cursor:pointer; margin:8px 6px 0 0; transition:.15s ease; }
+  button:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(30,41,59,.10); }
+  button.main { background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; border:0; font-weight:700; }
+  button:disabled { opacity:.5; cursor:wait; transform:none; }
+  .status { font-size:14px; color:var(--muted); margin-top:12px; }
+  .error { color:#b42318; font-weight:700; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:15px; }
+  th,td { padding:9px 10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  th { background:#f1f5f9; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .tok { font-family:ui-monospace,Menlo,monospace; background:#ede9fe; padding:3px 7px; border-radius:6px; }
+  .steps { margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:13px 14px; line-height:1.85; overflow-wrap:anywhere; }
+  .steps b { color:#6d28d9; }
+  .result { font-size:30px; font-weight:800; color:#1d4ed8; }
+  .bar-row { display:grid; grid-template-columns:36px 145px 1fr 70px; gap:8px; align-items:center; margin:7px 0; font-size:15px; }
+  .bar { height:20px; background:#e2e8f0; border-radius:999px; overflow:hidden; }
+  .fill { height:100%; background:linear-gradient(90deg,#60a5fa,#7c3aed); }
+  .top .fill { background:linear-gradient(90deg,#facc15,#f59e0b); }
+  .top .tok { background:#fef3c7; }
+  .sim-tag { display:inline-block; background:#fef3c7; color:#92400e; font-size:13px; font-weight:700; padding:4px 10px; border-radius:99px; vertical-align:middle; }
+  .row-input { display:flex; gap:8px; align-items:center; margin:7px 0; }
+  .row-input input[type=text] { width:140px; font-size:15px; padding:7px; }
+  #addRow { background:#eef2ff; color:#3730a3; }
+  @media (max-width:600px) { h1{font-size:27px}.hero{align-items:flex-start}.bat{width:58px;height:36px}.bar-row{grid-template-columns:32px 105px 1fr 58px}.card{padding:16px}.row-input{flex-wrap:wrap}.row-input input[type=text]{width:120px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="bat" aria-hidden="true"></div>
+    <div>
+      <h1>Perplexity <span>Explorer</span></h1>
+      <p class="sub">See how a real language model (DistilGPT-2) gives a probability to every token, and how those probabilities become one number: perplexity.</p>
+    </div>
+  </div>
+
+  <!-- 1. Real model: perplexity of a sentence -->
+  <div class="card">
+    <h2>1. Type a sentence</h2>
+    <div class="what">What is happening here? The model reads your sentence one token at a time. For each token it tells us: "How likely did I think this token was, given the tokens before it?"</div>
+    <input type="text" id="sentence" value="I love Python">
+    <div>
+      <button class="sample">I love Python</button>
+      <button class="sample">Python love I</button>
+      <button class="sample">The capital of France is Paris</button>
+    </div>
+    <button class="main" id="runBtn">Calculate perplexity</button>
+    <div class="status" id="status">The model downloads the first time you click (one time only).</div>
+  </div>
+
+  <div class="card" id="realCard" style="display:none">
+    <h2>2. Probability of each token → perplexity</h2>
+    <div class="what">Perplexity = (1/P₁ × 1/P₂ × … × 1/Pₙ)<sup>1/N</sup>. A low probability means a big 1/P, which pushes perplexity up. Lower perplexity = the model found the sentence less surprising.</div>
+    <div id="realOut"></div>
+  </div>
+
+  <div class="card" id="nextCard" style="display:none">
+    <h2>3. What does the model predict next?</h2>
+    <div class="what">The top 8 tokens the model thinks could come right after your sentence, with their probabilities.</div>
+    <div id="nextOut"></div>
+  </div>
+
+  <!-- 4. Simulated experiment -->
+  <div class="card">
+    <h2>4. Try it by hand <span class="sim-tag">Simulated, not from the model</span></h2>
+    <div class="what">Type your own probabilities and watch perplexity change. Try "All 1/8": if every token has probability 0.125, perplexity is exactly 8.</div>
+    <div>
+      <button class="preset" data-p="I:0.5,love:0.8,Python:0.2">I love Python (0.5, 0.8, 0.2)</button>
+      <button class="preset" data-p="t1:0.125,t2:0.125,t3:0.125,t4:0.125,t5:0.125,t6:0.125,t7:0.125,t8:0.125">All 1/8</button>
+      <button class="preset" data-p="The:0.9,cat:0.9,sat:0.9,quietly:0.01">One surprising word</button>
+    </div>
+    <div id="simRows"></div>
+    <button id="addRow">+ Add token</button>
+    <div id="simOut"></div>
+  </div>
+</div>
+
+<script type="module">
+import { AutoTokenizer, AutoModelForCausalLM, Tensor } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+const MODEL_ID = "Xenova/distilgpt2";
+const START_TOKEN_ID = 50256; // GPT-2's <|endoftext|> token, used as the start marker
+let tokenizer = null, model = null;
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- number formatting ----------
+function fmt(x) {
+  if (x === 0) return "0";
+  if (x >= 0.001 && x < 1e6) return Number(x.toPrecision(4)).toString();
+  return x.toExponential(2);
+}
+function showToken(t) { return t.replace(/ /g, "␣").replace(/\n/g, "↵"); }
+
+// ---------- the perplexity explanation (used by both sections) ----------
+// rows = [{ token: "I", p: 0.5 }, ...]
+function explain(rows) {
+  const N = rows.length;
+  let sumLog = 0; // sum of ln(1/P); using logs avoids overflow for long sentences
+  let html = "<table><tr><th>#</th><th>Token</th><th>Probability P</th><th>1 / P</th></tr>";
+  rows.forEach((r, i) => {
+    sumLog += -Math.log(r.p);
+    html += `<tr><td>${i + 1}</td><td><span class="tok">${showToken(r.token)}</span></td>
+             <td class="num">${fmt(r.p)}</td><td class="num">${fmt(1 / r.p)}</td></tr>`;
+  });
+  html += "</table>";
+  const product = Math.exp(sumLog);
+  const pp = Math.exp(sumLog / N);
+  const shown = rows.slice(0, 10).map(r => fmt(1 / r.p)).join(" × ") + (N > 10 ? " × …" : "");
+  html += `<div class="steps">
+    <b>Step 1:</b> Multiply all the 1/P values: ${shown} = <b>${fmt(product)}</b><br>
+    <b>Step 2:</b> Count the tokens: N = <b>${N}</b><br>
+    <b>Step 3:</b> Take the N-th root: (${fmt(product)})<sup>1/${N}</sup> = <span class="result">${fmt(pp)}</span><br>
+    Perplexity ≈ <b>${fmt(pp)}</b>: on average the model was as unsure as choosing between about ${fmt(pp)} equally likely tokens.
+  </div>`;
+  return html;
+}
+
+// ---------- real model ----------
+async function loadModel() {
+  if (model) return;
+  $("status").textContent = "Downloading the model… (first time only)";
+  tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
+  model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+    dtype: "q8",
+    progress_callback: (e) => {
+      if (e.status === "progress" && e.file.endsWith(".onnx")) {
+        $("status").textContent = `Downloading the model… ${Math.round(e.progress)}%`;
+      }
+    },
+  });
+}
+
+// log-probabilities for one position: ln P(token) = logit - ln(sum of exp(all logits))
+function logSoftmaxRow(data, offset, V) {
+  let max = -Infinity;
+  for (let j = 0; j < V; j++) if (data[offset + j] > max) max = data[offset + j];
+  let sum = 0;
+  for (let j = 0; j < V; j++) sum += Math.exp(data[offset + j] - max);
+  const logZ = max + Math.log(sum);
+  return (id) => data[offset + id] - logZ;
+}
+
+async function run() {
+  const text = $("sentence").value;
+  if (!text.trim()) return;
+  $("runBtn").disabled = true;
+  try {
+    await loadModel();
+    $("status").textContent = "Model ready. Calculating…";
+    const ids = [START_TOKEN_ID, ...tokenizer.encode(text)];
+    const n = ids.length;
+    const input_ids = new Tensor("int64", BigInt64Array.from(ids.map(BigInt)), [1, n]);
+    const attention_mask = new Tensor("int64", new BigInt64Array(n).fill(1n), [1, n]);
+    const { logits } = await model({ input_ids, attention_mask });
+    const V = logits.dims[2];
+    const data = logits.data;
+
+    // P(token i | tokens before it) for every real token of the sentence
+    const rows = [];
+    for (let i = 1; i < n; i++) {
+      const logP = logSoftmaxRow(data, (i - 1) * V, V);
+      rows.push({ token: tokenizer.decode([ids[i]]), p: Math.exp(logP(ids[i])) });
+    }
+    $("realOut").innerHTML = `<p>The first token is predicted from the model's start marker, so every token gets a real probability.</p>` + explain(rows);
+    $("realCard").style.display = "block";
+
+    // top 8 next tokens after the whole sentence
+    const lastLogP = logSoftmaxRow(data, (n - 1) * V, V);
+    const probs = [];
+    for (let j = 0; j < V; j++) probs.push([j, Math.exp(lastLogP(j))]);
+    probs.sort((a, b) => b[1] - a[1]);
+    const top = probs.slice(0, 8);
+    const maxP = top[0][1];
+    $("nextOut").innerHTML = top.map(([id, p], k) => `
+      <div class="bar-row ${k === 0 ? "top" : ""}">
+        <span>#${k + 1}</span><span class="tok">${showToken(tokenizer.decode([id]))}</span>
+        <div class="bar"><div class="fill" style="width:${(p / maxP) * 100}%"></div></div>
+        <span>${(p * 100).toFixed(1)}%</span>
+      </div>`).join("");
+    $("nextCard").style.display = "block";
+    $("status").textContent = "Model ready ✓";
+  } catch (err) {
+    $("status").innerHTML = `<span class="error">Could not run the model: ${err.message}.</span> Check your internet connection and that you opened the page through a local server (http://localhost…). Section 4 still works without the model.`;
+    console.error(err);
+  }
+  $("runBtn").disabled = false;
+}
+
+$("runBtn").onclick = run;
+document.querySelectorAll(".sample").forEach(b => b.onclick = () => { $("sentence").value = b.textContent; run(); });
+
+// ---------- simulated experiment ----------
+function addRow(token = "", p = 0.5) {
+  const div = document.createElement("div");
+  div.className = "row-input";
+  div.innerHTML = `<input type="text" value="${token}" placeholder="token">
+                   <input type="number" min="0.0001" max="1" step="0.01" value="${p}">
+                   <button>Remove</button>`;
+  div.querySelector("button").onclick = () => { div.remove(); updateSim(); };
+  div.querySelectorAll("input").forEach(inp => inp.oninput = updateSim);
+  $("simRows").appendChild(div);
+}
+function updateSim() {
+  const rows = [...document.querySelectorAll("#simRows .row-input")].map(d => {
+    const [t, p] = d.querySelectorAll("input");
+    return { token: t.value || "?", p: parseFloat(p.value) };
+  });
+  if (rows.length === 0) { $("simOut").innerHTML = ""; return; }
+  if (rows.some(r => !(r.p > 0 && r.p <= 1))) {
+    $("simOut").innerHTML = `<p class="error">Each probability must be more than 0 and at most 1.</p>`;
+    return;
+  }
+  $("simOut").innerHTML = explain(rows);
+}
+function loadPreset(str) {
+  $("simRows").innerHTML = "";
+  str.split(",").forEach(pair => { const [t, p] = pair.split(":"); addRow(t, parseFloat(p)); });
+  updateSim();
+}
+document.querySelectorAll(".preset").forEach(b => b.onclick = () => loadPreset(b.dataset.p));
+$("addRow").onclick = () => { addRow("new", 0.5); updateSim(); };
+loadPreset("I:0.5,love:0.8,Python:0.2");
+</script>
+</body>
+</html>
